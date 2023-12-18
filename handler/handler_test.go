@@ -89,7 +89,6 @@ func Test_GetByID(t *testing.T) {
 	mockLogger, mockStore := newMock(t)
 	h := New(mockStore)
 	emp := model.Employee{
-		ID:   1,
 		Name: "test emp",
 		Dept: "test dept",
 	}
@@ -129,7 +128,6 @@ func Test_Update(t *testing.T) {
 	mockLogger, mockStore := newMock(t)
 	h := New(mockStore)
 	emp := model.Employee{
-		ID:   1,
 		Name: "test emp",
 		Dept: "test dept",
 	}
