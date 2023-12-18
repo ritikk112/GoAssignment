@@ -22,14 +22,14 @@ func New(s store.Employee) handler {
 // Create to create new employee
 func (h handler) Create(ctx *gofr.Context) (interface{}, error) {
 	var employee model.Employee
-
+	
 	// ctx.Bind() binds the incoming data from the HTTP request to a provided interface (i).
 	if err := ctx.Bind(&employee); err != nil {
 		ctx.Logger.Errorf("Error in binding: %v", err)
 
 		return nil, errors.InvalidParam{Param: []string{"body"}}
 	}
-	
+
 	validate := validator.New()
 	if err := validate.Struct(employee); err != nil {
 		ctx.Logger.Errorf("Validation error: %v", err.Error())
@@ -45,12 +45,12 @@ func (h handler) Create(ctx *gofr.Context) (interface{}, error) {
 }
 
 // GetByID to get employee by ID
-func (h handler) GetByID(ctx *gofr.Context) (interface{}, error) {
+func (h handler) GetByID(ctx *gofr.Context, id int) (interface{}, error) {
 	// ctx.PathParam() returns the path parameter from HTTP request.
-	id, err := validateID(ctx.PathParam("id"))
-	if err != nil {
-		return nil, err
-	}
+	// id, err := validateID(ctx.PathParam("id"))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	resp, err := h.store.GetByID(ctx, id)
 	if err != nil {
@@ -61,14 +61,14 @@ func (h handler) GetByID(ctx *gofr.Context) (interface{}, error) {
 }
 
 // Update to update employee by ID
-func (h handler) Update(ctx *gofr.Context) (interface{}, error) {
-	id, err := validateID(ctx.PathParam("id"))
-	if err != nil {
-		return nil, err
-	}
+func (h handler) Update(ctx *gofr.Context, id int) (interface{}, error) {
+	// id, err := validateID(ctx.PathParam("id"))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	var employee model.Employee
-	if err = ctx.Bind(&employee); err != nil {
+	if err := ctx.Bind(&employee); err != nil {
 		ctx.Logger.Errorf("Error in binding: %v", err)
 
 		return nil, errors.InvalidParam{Param: []string{"body"}}
@@ -85,11 +85,11 @@ func (h handler) Update(ctx *gofr.Context) (interface{}, error) {
 }
 
 // Delete to delete employee by ID
-func (h handler) Delete(ctx *gofr.Context) (interface{}, error) {
-	id, err := validateID(ctx.PathParam("id"))
-	if err != nil {
-		return nil, err
-	}
+func (h handler) Delete(ctx *gofr.Context, id int) (interface{}, error) {
+	// id, err := validateID(ctx.PathParam("id"))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return nil, h.store.Delete(ctx, id)
 }

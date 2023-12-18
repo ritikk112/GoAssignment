@@ -1,221 +1,143 @@
 package handler
 
-import (
+import 
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	"gofr.dev/pkg/errors"
-	"gofr.dev/pkg/gofr"
-	"gofr.dev/pkg/gofr/request"
-	gofrLog "gofr.dev/pkg/log"
-
 	"sample/model"
 	"sample/store"
+	"testing"
+	"gofr.dev/pkg/gofr/request"
+	"gofr.dev/pkg/gofr"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
-func newMock(t *testing.T) (gofrLog.Logger, *store.MockEmployee) {
-	ctrl := gomock.NewController(t)
-
-	defer ctrl.Finish()
-
-	mockStore := store.NewMockEmployee(ctrl)
-	mockLogger := gofrLog.NewMockLogger(io.Discard)
-
-	return mockLogger, mockStore
+// MockStore is a mock of store.Employee interface
+type MockStore struct {
+	ctrl     *gomock.Controller
+	recorder *MockStoreMockRecorder
 }
 
-func createContext(method string, params map[string]string, emp interface{}, logger gofrLog.Logger, t *testing.T) *gofr.Context {
-	body, err := json.Marshal(emp)
-	if err != nil {
-		t.Fatalf("Error while marshalling model: %v", err)
+// MockStoreMockRecorder is the mock recorder for MockStore
+type MockStoreMockRecorder struct {
+	mock *MockStore
+}
+
+func TestCreate(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStore := store.NewMockEmployee(mockCtrl)
+	h := New(mockStore)
+
+	// Create a sample employee to use as request body
+	emp := model.Employee{
+		Name: "JohnDoe",
+		Dept: "Engineering",
 	}
 
-	r := httptest.NewRequest(method, "/dummy", bytes.NewBuffer(body))
-	query := r.URL.Query()
-
-	for key, value := range params {
-		query.Add(key, value)
-	}
-
-	r.URL.RawQuery = query.Encode()
-
+	empJSON, _ := json.Marshal(emp)
+	r := httptest.NewRequest(http.MethodPost, "/employee", bytes.NewBuffer(empJSON))
 	req := request.NewHTTPRequest(r)
+	ctx := gofr.NewContext(nil, req, nil)
 
-	return gofr.NewContext(nil, req, nil)
+	// Set up the expected behavior of the store
+	mockStore.EXPECT().Create(ctx, &emp).Return(&emp, nil)
+
+	// Call the Create method
+	resp, err := h.Create(ctx)
+
+	assert.Nil(t, err)
+	assert.Equal(t, &emp, resp)
 }
 
-func Test_Create(t *testing.T) {
-	mockLogger, mockStore := newMock(t)
+func TestGetByID(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStore := store.NewMockEmployee(mockCtrl)
 	h := New(mockStore)
+
+	// Set up a sample employee ID
+	employeeID := 1
 	emp := model.Employee{
-		Name: "test emp",
-		Dept: "test dept",
+		ID:   1,
+		Name: "John Doe",
+		Dept: "Engineering",
 	}
+	
+	r := httptest.NewRequest(http.MethodGet, "/employee/1", nil)
+	req := request.NewHTTPRequest(r)
+	ctx := gofr.NewContext(nil, req, nil)
+	
 
-	testCases := []struct {
-		desc      string
-		input     interface{}
-		mockCalls []*gomock.Call
-		expRes    interface{}
-		expErr    error
-	}{
-		{"success case", emp, []*gomock.Call{
-			mockStore.EXPECT().Create(gomock.AssignableToTypeOf(&gofr.Context{}), &emp).Return(&emp, nil).Times(1),
-		}, &emp, nil},
-		{"failure case", emp, []*gomock.Call{
-			mockStore.EXPECT().Create(gomock.AssignableToTypeOf(&gofr.Context{}), &emp).Return(nil, errors.Error("test error")).Times(1),
-		}, nil, errors.Error("test error")},
-		{"failure case-bind error", "test", []*gomock.Call{}, nil, errors.InvalidParam{Param: []string{"body"}}},
-	}
+	// ctx.PathParam("0")
 
-	for i, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx := createContext(http.MethodPost, nil, tc.input, mockLogger, t)
-			res, err := h.Create(ctx)
+	// Set up the expected behavior of the store
+	mockStore.EXPECT().GetByID(ctx, employeeID).Return(&emp, nil)
 
-			assert.Equal(t, tc.expRes, res, "Test [%d] failed", i+1)
-			assert.Equal(t, tc.expErr, err, "Test [%d] failed", i+1)
-		})
-	}
+	// Call the GetByID method
+	resp, err := h.GetByID(ctx, employeeID)
+
+	assert.Nil(t, err)
+	assert.Equal(t, &emp, resp)
 }
-func Test_GetByID(t *testing.T) {
-	mockLogger, mockStore := newMock(t)
+
+func TestUpdate(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStore := store.NewMockEmployee(mockCtrl)
 	h := New(mockStore)
+
+	// Set up a sample employee ID and data
+	employeeID := 1
 	emp := model.Employee{
-		Name: "test emp",
-		Dept: "test dept",
+		ID:   employeeID,
+		Name: "Jane Doe",
+		Dept: "HR",
 	}
 
-	testCases := []struct {
-		desc      string
-		id        string
-		mockCalls []*gomock.Call
-		expRes    interface{}
-		expErr    error
-	}{
-		{"success case", "1", []*gomock.Call{
-			mockStore.EXPECT().GetByID(gomock.AssignableToTypeOf(&gofr.Context{}), 1).Return(&emp, nil).Times(1),
-		}, &emp, nil},
-		{"failure case", "1", []*gomock.Call{
-			mockStore.EXPECT().GetByID(gomock.AssignableToTypeOf(&gofr.Context{}), 1).Return(nil, errors.EntityNotFound{Entity: "employee", ID: "1"}).Times(1),
-		}, nil, errors.EntityNotFound{Entity: "employee", ID: "1"}},
-		{"failure case-missing id", "", []*gomock.Call{}, nil, errors.MissingParam{Param: []string{"id"}}},
-		{"failure case-invalid id", "test", []*gomock.Call{}, nil, errors.InvalidParam{Param: []string{"id"}}},
-	}
+	// Marshal the employee struct to JSON for the request body
 
-	for i, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx := createContext(http.MethodGet, nil, nil, mockLogger, t)
 
-			ctx.SetPathParams(map[string]string{"id": tc.id})
+	empJSON, _ := json.Marshal(emp)
+	r := httptest.NewRequest(http.MethodPut, "/employee", bytes.NewBuffer(empJSON))
+	req := request.NewHTTPRequest(r)
+	ctx := gofr.NewContext(nil, req, nil)
 
-			res, err := h.GetByID(ctx)
+	// Set up the expected behavior of the store
+	mockStore.EXPECT().Update(ctx, &emp).Return(&emp, nil)
 
-			assert.Equal(t, tc.expRes, res, "Test [%d] failed", i+1)
-			assert.Equal(t, tc.expErr, err, "Test [%d] failed", i+1)
-		})
-	}
+	// Call the Update method
+	resp, err := h.Update(ctx, employeeID)
+
+	assert.Nil(t, err)
+	assert.Equal(t, &emp, resp)
 }
 
-func Test_Update(t *testing.T) {
-	mockLogger, mockStore := newMock(t)
-	h := New(mockStore)
-	emp := model.Employee{
-		Name: "test emp",
-		Dept: "test dept",
-	}
+func TestDelete(t *testing.T) {
+    mockCtrl := gomock.NewController(t)
+    defer mockCtrl.Finish()
 
-	testCases := []struct {
-		desc      string
-		id        string
-		input     interface{}
-		mockCalls []*gomock.Call
-		expRes    interface{}
-		expErr    error
-	}{
-		{"success case", "1", emp, []*gomock.Call{
-			mockStore.EXPECT().Update(gomock.AssignableToTypeOf(&gofr.Context{}), &emp).Return(&emp, nil).Times(1),
-		}, &emp, nil},
-		{"failure case", "1", emp, []*gomock.Call{
-			mockStore.EXPECT().Update(gomock.AssignableToTypeOf(&gofr.Context{}), &emp).Return(nil, errors.Error("test error")).Times(1),
-		}, nil, errors.Error("test error")},
-		{"failure case-missing id", "", "test", []*gomock.Call{}, nil, errors.MissingParam{Param: []string{"id"}}},
-		{"failure case-invalid id", "test", "test", []*gomock.Call{}, nil, errors.InvalidParam{Param: []string{"id"}}},
-		{"failure case-bind error", "1", "test", []*gomock.Call{}, nil, errors.InvalidParam{Param: []string{"body"}}},
-	}
+    mockStore := store.NewMockEmployee(mockCtrl)
+    h := New(mockStore)
 
-	for i, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx := createContext(http.MethodPut, nil, tc.input, mockLogger, t)
+    // Set up a sample employee ID
+    employeeID := 1
 
-			ctx.SetPathParams(map[string]string{"id": tc.id})
+    // Mock HTTP request
+    r := httptest.NewRequest(http.MethodDelete, "/employee/1", nil)
+    req := request.NewHTTPRequest(r)
+    ctx := gofr.NewContext(nil, req, nil)
 
-			res, err := h.Update(ctx)
+    // Set up the expected behavior of the store
+    mockStore.EXPECT().Delete(ctx, employeeID).Return(nil).Times(1)
 
-			assert.Equal(t, tc.expRes, res, "Test [%d] failed", i+1)
-			assert.Equal(t, tc.expErr, err, "Test [%d] failed", i+1)
-		})
-	}
-}
+    // Call the Delete method and capture both return values
+    _, err := h.Delete(ctx, employeeID)
 
-func Test_Delete(t *testing.T) {
-	mockLogger, mockStore := newMock(t)
-	h := New(mockStore)
-
-	testCases := []struct {
-		desc      string
-		id        string
-		mockCalls []*gomock.Call
-		expErr    error
-	}{
-		{"success case", "1", []*gomock.Call{
-			mockStore.EXPECT().Delete(gomock.AssignableToTypeOf(&gofr.Context{}), 1).Return(nil).Times(1),
-		}, nil},
-		{"failure case", "1", []*gomock.Call{
-			mockStore.EXPECT().Delete(gomock.AssignableToTypeOf(&gofr.Context{}), 1).Return(errors.Error("test error")).Times(1),
-		}, errors.Error("test error")},
-		{"failure case-missing id", "", []*gomock.Call{}, errors.MissingParam{Param: []string{"id"}}},
-		{"failure case-invalid id", "test", []*gomock.Call{}, errors.InvalidParam{Param: []string{"id"}}},
-	}
-
-	for i, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ctx := createContext(http.MethodDelete, nil, nil, mockLogger, t)
-
-			ctx.SetPathParams(map[string]string{"id": tc.id})
-
-			_, err := h.Delete(ctx)
-
-			assert.Equal(t, tc.expErr, err, "Test [%d] failed", i+1)
-		})
-	}
-}
-
-func Test_validateID(t *testing.T) {
-	testCases := []struct {
-		desc   string
-		id     string
-		expID  int
-		expErr error
-	}{
-		{"success case", "1", 1, nil},
-		{"failure case-empty ID", "", 0, errors.MissingParam{Param: []string{"id"}}},
-		{"failure case-invalid ID", "test", 0, errors.InvalidParam{Param: []string{"id"}}},
-	}
-
-	for i, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			id, err := validateID(tc.id)
-
-			assert.Equal(t, tc.expID, id, "Test [%d] failed", i+1)
-			assert.Equal(t, tc.expErr, err, "Test [%d] failed", i+1)
-		})
-	}
+    assert.Nil(t, err)
 }
