@@ -52,32 +52,9 @@ PUT /api/employees/{id} Update an existing employee record by ID.
 DELETE /api/employees/{id} Delete an employee record by ID.
   
 </li>
+<br>
 
-<h4>Here's how to use these endpoints: </h4>
-<li>
-Create a new employee:
-  
-</li>
-
-curl -X POST -H "Content-Type: application/json" -d '{"name": "John Doe", "dept": "Engineering"}' http://localhost:8080/api/employees
-<li>
-Retrieve an employee by ID:
-  
-</li>
-
-curl http://localhost:8080/api/employees/1
-<li>
-Update an employee by ID:
-  
-</li>
-
-curl -X PUT -H "Content-Type: application/json" -d '{"name": "Jane Doe", "dept": "Marketing"}' http://localhost:8080/api/employees/1
-<li>
-Delete an employee by ID:
-  
-</li>
-
-curl -X DELETE http://localhost:8080/api/employees/1
+You can use Postman to test various API Calls 
 
 <h3>4.Testing </h3>
 
